@@ -1,6 +1,6 @@
 {
   "name": "attendance-manager",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Attendance Manager for classroom use",
   "main": "src/main.js",
   "scripts": {
@@ -12,6 +12,7 @@
     "productName": "Attendance Manager",
     "mac": {
       "category": "public.app-category.education",
+      "icon": "assets/icon.png",
       "target": [
         { "target": "zip", "arch": ["x64", "arm64"] }
       ]
