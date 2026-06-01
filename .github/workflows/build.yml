@@ -3,7 +3,11 @@ name: Build Mac App
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:  # allows manual trigger from GitHub UI
+    tags: [ 'v*' ]      # pushing a version tag (e.g. v1.0.0) publishes a Release
+  workflow_dispatch:    # allows manual trigger from GitHub UI
+
+permissions:
+  contents: write       # needed so the workflow can create a Release
 
 jobs:
   build:
@@ -28,9 +32,32 @@ jobs:
           # build doesn't hang or fail trying to sign. App stays unsigned.
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
-      - name: Upload DMG
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: Attendance-Manager-Mac
           path: dist/*.zip
           retention-days: 30
+
+      # Only runs when a version tag (v*) is pushed: publishes a public
+      # Release with the Mac .zip files attached so anyone can download them.
+      - name: Publish Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          body: |
+            ## Attendance Manager — download for Mac
+
+            **Apple Silicon Macs (M1/M2/M3/M4 — most recent MacBooks):**
+            download the file ending in **`-arm64-mac.zip`**.
+
+            *(Older Intel Macs: download the one ending in `-mac.zip`.)*
+
+            ### How to install
+            1. Double-click the downloaded `.zip` — it unpacks to **Attendance Manager.app**.
+            2. Drag **Attendance Manager.app** into your **Applications** folder.
+            3. The first time you open it, macOS may say it can't verify the developer.
+               To allow it: open  → **System Settings → Privacy & Security**,
+               scroll to the bottom, and click **Open Anyway**, then confirm.
+            4. After that first time, just double-click the app whenever you need it.
