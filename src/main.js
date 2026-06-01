@@ -53,8 +53,34 @@ function maybeBackup(jsonStr) {
   } catch (e) { /* backups are best-effort; never block a save */ }
 }
 
+let mainWindow = null;
+let pendingOpenFile = null; // a .am path requested before the window was ready
+
+// Read a .am file and return its class object (accepts wrapped or raw JSON).
+function readAmFile(filePath) {
+  const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  const cls = parsed && parsed.class ? parsed.class : parsed;
+  if (!cls || typeof cls !== 'object' || !Array.isArray(cls.students)) return null;
+  return cls;
+}
+
+// Send an opened .am file's class to the renderer (or queue it until ready).
+function sendAmFile(filePath) {
+  try {
+    const cls = readAmFile(filePath);
+    if (!cls) return;
+    if (mainWindow && mainWindow.webContents && !mainWindow.webContents.isLoading()) {
+      mainWindow.webContents.send('open-am-file', { cls, path: filePath });
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    } else {
+      pendingOpenFile = filePath;
+    }
+  } catch (e) { /* ignore unreadable file */ }
+}
+
 function createWindow() {
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 800,
@@ -69,8 +95,18 @@ function createWindow() {
     },
     title: 'Attendance Manager',
   });
-  win.loadFile(path.join(__dirname, 'index.html'));
+  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (pendingOpenFile) { sendAmFile(pendingOpenFile); pendingOpenFile = null; }
+  });
+  mainWindow.on('closed', () => { mainWindow = null; });
 }
+
+// macOS fires this when a .am file is double-clicked (associated with the app).
+app.on('open-file', (event, filePath) => {
+  event.preventDefault();
+  sendAmFile(filePath);
+});
 
 app.whenReady().then(() => {
   createWindow();
@@ -246,6 +282,57 @@ ipcMain.handle('export-xlsx', async (_, { cls, choose }) => {
     const filePath = path.join(outDir, fileBase + '_' + dateStr + '.xlsx');
     fs.writeFileSync(filePath, buf);
     shell.showItemInFolder(filePath); // open the folder so she can find the file
+    return true;
+  } catch (e) { return false; }
+});
+
+// ── .am DOCUMENT FILES ───────────────────────────────────────────────
+// An .am file is a single class saved as JSON, so it can live in any folder
+// and be opened by double-clicking it.
+
+function amContents(cls) {
+  return JSON.stringify({ format: 'attendance-manager', version: 1, class: cls }, null, 2);
+}
+
+// "Save as .am" — ask where to save, write the class, return the chosen path.
+ipcMain.handle('save-am', async (_, { cls }) => {
+  const base = (safeName(cls.name || 'class') || 'class').replace(/\s+/g, '-')
+             + (cls.semester ? '_' + (safeName(cls.semester) || '').replace(/\s+/g, '-') : '');
+  const { filePath } = await dialog.showSaveDialog({
+    title: 'Save class as .am file',
+    defaultPath: base + '.am',
+    filters: [{ name: 'Attendance Class', extensions: ['am'] }],
+  });
+  if (!filePath) return null;
+  try {
+    const tmp = filePath + '.tmp';
+    fs.writeFileSync(tmp, amContents(cls), 'utf8');
+    fs.renameSync(tmp, filePath);
+    return filePath;
+  } catch (e) { return null; }
+});
+
+// "Open .am" — pick a file and return its class plus the file path.
+ipcMain.handle('open-am', async () => {
+  const res = await dialog.showOpenDialog({
+    title: 'Open an .am class file',
+    filters: [{ name: 'Attendance Class', extensions: ['am'] }],
+    properties: ['openFile'],
+  });
+  if (res.canceled || !res.filePaths.length) return null;
+  try {
+    const cls = readAmFile(res.filePaths[0]);
+    return cls ? { cls, path: res.filePaths[0] } : null;
+  } catch (e) { return null; }
+});
+
+// Silently write a class back to its linked .am file (used on auto-save).
+ipcMain.handle('write-am', (_, { path: filePath, cls }) => {
+  try {
+    if (!filePath || !fs.existsSync(path.dirname(filePath))) return false;
+    const tmp = filePath + '.tmp';
+    fs.writeFileSync(tmp, amContents(cls), 'utf8');
+    fs.renameSync(tmp, filePath);
     return true;
   } catch (e) { return false; }
 });

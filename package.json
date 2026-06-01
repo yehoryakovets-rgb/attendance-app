@@ -1,6 +1,6 @@
 {
   "name": "attendance-manager",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "Attendance Manager for classroom use",
   "main": "src/main.js",
   "scripts": {
@@ -17,6 +17,13 @@
         { "target": "zip", "arch": ["x64", "arm64"] }
       ]
     },
+    "fileAssociations": [
+      {
+        "ext": "am",
+        "name": "Attendance Class",
+        "role": "Editor"
+      }
+    ],
     "files": [
       "src/**/*",
       "assets/**/*",

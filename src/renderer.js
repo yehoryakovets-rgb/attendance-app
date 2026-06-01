@@ -20,6 +20,8 @@ async function boot() {
   applyZoom();
   const saved = await window.api.loadData();
   if (saved) db = saved;
+  // Open a class when a .am file is double-clicked (or opened) on macOS.
+  window.api.onOpenAm(({ cls, path }) => importAmClass(cls, path));
   render();
   updateDate();
   setInterval(updateDate, 60 * 1000); // keep it correct if the app is left open past midnight
@@ -47,6 +49,9 @@ function updateDate() {
 // ── PERSIST ──────────────────────────────────────────────────────────
 async function save() {
   await window.api.saveData(db);
+  // If the active class is linked to a .am file, keep that file up to date too.
+  const cls = ac();
+  if (cls && cls.amPath) window.api.writeAm(cls.amPath, cls);
   const el = document.getElementById('sb');
   if (!el) return;
   el.classList.add('show');
@@ -149,8 +154,11 @@ function renderHome() {
   return `
   <div id="home">
     <div class="home-hero">
-      <h1>My Classes</h1>
-      <p>${db.classes.length} class${db.classes.length !== 1 ? 'es' : ''}</p>
+      <div>
+        <h1>My Classes</h1>
+        <p>${db.classes.length} class${db.classes.length !== 1 ? 'es' : ''}</p>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="openAmFile()" title="Open a class saved as a .am file">Open .am file</button>
     </div>
     <div class="classes-grid">
       ${cards}
@@ -210,6 +218,7 @@ function renderEditor(cls) {
       <div class="editor-cls-name" id="ecn">${h(cls?.name || 'Untitled Class')}${cls?.semester ? `<small>${h(cls.semester)}</small>` : ''}</div>
       <div class="tab-list">${tabHtml}</div>
       <div class="editor-toolbar">
+        <button class="btn btn-outline btn-sm" onclick="saveAsAm()" title="Save this class as a .am file you can keep in a folder">Save as .am</button>
         <button class="btn btn-outline btn-sm" onclick="doExport(true)" title="Pick a different folder for exports">Change folder</button>
         <button class="btn btn-outline btn-sm" onclick="doExport()">${ico} Export Excel</button>
       </div>
@@ -452,6 +461,32 @@ async function doExport(choose) {
   const cls = ac(); if (!cls) return;
   const success = await window.api.exportXlsx(cls, !!choose);
   if (success) toast(choose ? 'Export folder changed. File saved.' : 'Excel file saved successfully.');
+}
+
+// ── .am DOCUMENT FILES ───────────────────────────────────────────────
+// Save the active class to a .am file the professor can keep in any folder.
+async function saveAsAm() {
+  const cls = ac(); if (!cls) return;
+  const path = await window.api.saveAm(cls);
+  if (path) { cls.amPath = path; save(); toast('Saved as .am file. It now updates as you edit.'); }
+}
+
+// Open a .am file via the file picker.
+async function openAmFile() {
+  const res = await window.api.openAm();
+  if (res && res.cls) importAmClass(res.cls, res.path);
+}
+
+// Bring a class from a .am file into the app (add or update by id), link the
+// file so future edits save back to it, and open it.
+function importAmClass(cls, path) {
+  if (!cls || !cls.id) return;
+  cls.amPath = path;
+  const i = db.classes.findIndex(c => c.id === cls.id);
+  if (i >= 0) db.classes[i] = cls; else db.classes.push(cls);
+  openCls(cls.id);
+  save();
+  toast('Opened "' + (cls.name || 'class') + '" from file.');
 }
 
 // ── MODAL ────────────────────────────────────────────────────────────
