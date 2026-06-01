@@ -3,8 +3,20 @@ const path = require('path');
 const fs = require('fs');
 const XLSX = require('xlsx');
 
-const DATA_FILE  = path.join(app.getPath('userData'), 'attendance-data.json');
-const BACKUP_DIR = path.join(app.getPath('userData'), 'backups');
+const DATA_FILE     = path.join(app.getPath('userData'), 'attendance-data.json');
+const BACKUP_DIR    = path.join(app.getPath('userData'), 'backups');
+const SETTINGS_FILE = path.join(app.getPath('userData'), 'settings.json');
+
+function readSettings() {
+  try { return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8')); } catch (e) { return {}; }
+}
+function writeSettings(s) {
+  try {
+    const tmp = SETTINGS_FILE + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(s), 'utf8');
+    fs.renameSync(tmp, SETTINGS_FILE);
+  } catch (e) { /* best-effort */ }
+}
 
 // Keep a new backup at most this often (ms), and retain this many at most.
 const BACKUP_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
@@ -49,6 +61,7 @@ function createWindow() {
     minHeight: 600,
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#f5f2ed',
+    icon: path.join(__dirname, '..', 'assets', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -133,13 +146,20 @@ function safeName(s) {
 }
 
 ipcMain.handle('export-xlsx', async (_, { cls }) => {
-  // The user picks a parent location; we create a class-named subfolder inside it.
-  const res = await dialog.showOpenDialog({
-    title: 'Choose where to export',
-    buttonLabel: 'Export Here',
-    properties: ['openDirectory', 'createDirectory'],
-  });
-  if (res.canceled || !res.filePaths.length) return false;
+  // Use the remembered base folder; only ask if we don't have a valid one yet.
+  const settings = readSettings();
+  let baseDir = settings.exportDir;
+  if (!baseDir || !fs.existsSync(baseDir)) {
+    const res = await dialog.showOpenDialog({
+      title: 'Choose a folder to keep all your attendance exports',
+      buttonLabel: 'Use This Folder',
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (res.canceled || !res.filePaths.length) return false;
+    baseDir = res.filePaths[0];
+    settings.exportDir = baseDir;
+    writeSettings(settings);
+  }
 
   try {
     const dates = genDatesMain(cls.startDate, cls.endDate, cls.meetingDays);
@@ -217,7 +237,10 @@ ipcMain.handle('export-xlsx', async (_, { cls }) => {
     const folderName = safeName((cls.name || 'Class') + ' ' + (cls.semester || '')) || 'Attendance Export';
     const fileBase   = (safeName(cls.name || 'attendance') || 'attendance').replace(/\s+/g, '-')
                      + '_' + (safeName(cls.semester || 'export') || 'export').replace(/\s+/g, '-');
-    const outDir     = path.join(res.filePaths[0], folderName);
+    // Reuse the class folder if it already exists (recursive:true never duplicates).
+    // If the saved base folder is already the class folder itself, write straight
+    // into it instead of nesting another folder of the same name inside.
+    const outDir     = path.basename(baseDir) === folderName ? baseDir : path.join(baseDir, folderName);
     fs.mkdirSync(outDir, { recursive: true });
     const filePath = path.join(outDir, fileBase + '_' + dateStr + '.xlsx');
     fs.writeFileSync(filePath, buf);

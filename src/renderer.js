@@ -51,6 +51,13 @@ function genDates(s, e, days) {
   return res;
 }
 
+// Today's date as YYYY-MM-DD, built the same way genDates builds session dates
+// (local noon → ISO) so it matches a session column for the same calendar day.
+function todayStr() {
+  const n = new Date();
+  return new Date(n.getFullYear(), n.getMonth(), n.getDate(), 12).toISOString().slice(0, 10);
+}
+
 function fmtShort(ds) {
   const d = new Date(ds + 'T12:00:00');
   return MONS[d.getMonth()] + ' ' + d.getDate();
@@ -94,6 +101,7 @@ function render() {
     const cls = ac();
     crumb.innerHTML = `<span>All Classes</span> <span>/</span> <span class="ca">${h(cls?.name || 'Untitled')}</span>`;
     root.innerHTML  = renderEditor(cls);
+    if (activeTab === 'sheet') setTimeout(scrollToToday, 60);
   }
 }
 
@@ -143,7 +151,15 @@ function newCls() {
   render();
 }
 
-function openCls(id) { activeId = id; activeTab = 'settings'; view = 'editor'; render(); }
+function openCls(id) {
+  activeId = id; view = 'editor';
+  // If the class is already set up (has students and scheduled sessions), jump
+  // straight to the Sheet. Otherwise start on Settings to finish setup.
+  const cls = getCls(id);
+  const ready = cls && cls.students?.length && genDates(cls.startDate, cls.endDate, cls.meetingDays).length;
+  activeTab = ready ? 'sheet' : 'settings';
+  render();
+}
 
 function goHome() { collectSettings(); view = 'home'; activeId = null; render(); }
 
@@ -275,8 +291,10 @@ function renderRoster(cls) {
   const rows = cls.students.map((s, i) => `
     <div class="student-item">
       <span class="s-num">${String(i+1).padStart(2,'0')}</span>
-      <span class="s-name">${h(s.name)}</span>
-      ${s.studentId ? `<span class="s-sid">${h(s.studentId)}</span>` : ''}
+      <input class="s-edit s-edit-name" value="${h(s.name)}" title="Edit name"
+             onchange="editStu('${s.id}','name',this.value)">
+      <input class="s-edit s-edit-id" value="${h(s.studentId || '')}" placeholder="Student ID" title="Edit student ID"
+             onchange="editStu('${s.id}','studentId',this.value)">
       <button class="s-del" onclick="delStu('${s.id}')" title="Remove">×</button>
     </div>`).join('');
 
@@ -304,6 +322,16 @@ function addStu() {
   setTimeout(() => document.getElementById('ni')?.focus(), 50);
 }
 
+// Edit a student's name or ID in place (no add/delete needed).
+function editStu(sid, field, value) {
+  const cls = ac(); if (!cls) return;
+  const s = cls.students.find(x => x.id === sid); if (!s) return;
+  const v = value.trim();
+  if (field === 'name' && !v) { render(); return; } // don't allow a blank name; restore previous
+  s[field] = v;
+  save();
+}
+
 function delStu(sid) {
   const cls = ac();
   cls.students = cls.students.filter(s => s.id !== sid);
@@ -326,14 +354,16 @@ function renderSheet(cls) {
   }
 
   const ico = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="width:13px;height:13px"><path d="M8 2v8M5 7l3 3 3-3M3 12h10"/></svg>`;
-  const dh = dates.map(ds => `<th class="col-date-h"><div class="date-stack">${fmtHead(ds)}</div></th>`).join('');
+  const today    = todayStr();
+  const hasToday = dates.includes(today);
+  const dh = dates.map(ds => `<th class="col-date-h${ds === today ? ' today' : ''}"${ds === today ? ' id="todaycol"' : ''}><div class="date-stack">${fmtHead(ds)}</div></th>`).join('');
 
   const rows = cls.students.map((s, si) => {
     const st  = stats(cls, s.id);
     const bad = st.abs > 0 || st.tardy > 0;
     const cells = dates.map(ds => {
       const v = cls.attendance?.[s.id]?.[ds] || '';
-      return `<td class="col-att-td"><button class="att-cell ${v}" onclick="cycleCell('${s.id}','${ds}',this)">${v || '·'}</button></td>`;
+      return `<td class="col-att-td${ds === today ? ' today' : ''}"><button class="att-cell ${v}" onclick="cycleCell('${s.id}','${ds}',this)">${v || '·'}</button></td>`;
     }).join('');
     const pc = st.pct < 80 ? 'vpl' : st.pct < 90 ? 'vpm' : 'vpok';
     return `<tr>
@@ -354,7 +384,10 @@ function renderSheet(cls) {
       <span><span class="legend-dot" style="background:var(--border2)"></span>Present (·)</span>
       <span style="color:var(--border2)">— click to cycle</span>
     </div>
-    <button class="btn btn-outline btn-sm" onclick="doExport()">${ico} Export Excel</button>
+    <div class="sheet-bar-actions">
+      ${hasToday ? `<button class="btn btn-outline btn-sm" onclick="scrollToToday()">Jump to Today</button>` : ''}
+      <button class="btn btn-outline btn-sm" onclick="doExport()">${ico} Export Excel</button>
+    </div>
   </div>
   <div class="sheet-outer">
     <table>
@@ -369,6 +402,11 @@ function renderSheet(cls) {
       <tbody>${rows}</tbody>
     </table>
   </div>`;
+}
+
+function scrollToToday() {
+  const el = document.getElementById('todaycol');
+  if (el) el.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
 }
 
 function cycleCell(sid, ds, btn) {
