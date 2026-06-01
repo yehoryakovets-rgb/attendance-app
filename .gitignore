@@ -1,0 +1,12 @@
+# Dependencies — rebuilt by the GitHub Actions workflow
+node_modules/
+
+# Build output
+dist/
+
+# OS / editor cruft
+.DS_Store
+*.log
+
+# Local Claude Code settings
+.claude/

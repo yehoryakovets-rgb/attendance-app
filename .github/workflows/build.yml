@@ -1,0 +1,36 @@
+name: Build Mac App
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:  # allows manual trigger from GitHub UI
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Mac app
+        run: npm run build
+        env:
+          # No Apple certificate on the runner — skip code signing so the
+          # build doesn't hang or fail trying to sign. App stays unsigned.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: Attendance-Manager-Mac
+          path: dist/*.zip
+          retention-days: 30
