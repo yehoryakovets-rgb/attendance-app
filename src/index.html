@@ -44,6 +44,10 @@ button { cursor:pointer; }
 .titlebar-logo em { font-style:italic; opacity:.7; font-size:13px; margin-left:8px; font-family:var(--mono); font-weight:300; }
 .titlebar-date { font-family:var(--mono); font-size:11px; color:rgba(255,255,255,.7); letter-spacing:.04em; -webkit-app-region:no-drag; padding-left:16px; margin-left:4px; border-left:1px solid rgba(255,255,255,.18); }
 .titlebar-sep { flex:1; }
+.titlebar-zoom { display:flex; align-items:center; gap:6px; -webkit-app-region:no-drag; margin-right:4px; }
+.zoom-btn { background:rgba(255,255,255,.14); color:#fff; border:none; border-radius:6px; min-width:28px; height:24px; font-size:13px; font-family:var(--mono); cursor:pointer; line-height:1; padding:0 6px; }
+.zoom-btn:hover { background:rgba(255,255,255,.28); }
+.zoom-val { font-family:var(--mono); font-size:10px; color:rgba(255,255,255,.6); min-width:34px; text-align:center; }
 .titlebar-crumb { font-family:var(--mono); font-size:11px; color:rgba(255,255,255,.5); letter-spacing:.06em; display:flex; align-items:center; gap:6px; -webkit-app-region:no-drag; }
 .titlebar-crumb .ca { color:rgba(255,255,255,.9); }
 .save-badge { font-family:var(--mono); font-size:10px; color:rgba(255,255,255,.7); letter-spacing:.06em; opacity:0; transition:opacity .3s; -webkit-app-region:no-drag; }
@@ -203,6 +207,11 @@ tbody tr:hover .col-name-td, tbody tr:hover .col-sum-td { background:#f5f3ef; }
   <div class="titlebar-logo">Attendance <em>Manager</em></div>
   <div class="titlebar-date" id="tbdate"></div>
   <div class="titlebar-sep"></div>
+  <div class="titlebar-zoom" title="Make everything smaller or bigger">
+    <button class="zoom-btn" onclick="setZoom(-1)" title="Smaller">A −</button>
+    <span class="zoom-val" id="zoomval">100%</span>
+    <button class="zoom-btn" onclick="setZoom(1)" title="Bigger">A +</button>
+  </div>
   <div class="titlebar-crumb" id="crumb"></div>
   <span class="save-badge" id="sb">✓ Saved</span>
 </div>

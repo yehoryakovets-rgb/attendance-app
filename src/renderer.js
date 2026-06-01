@@ -1,7 +1,11 @@
 // ── CONSTANTS ────────────────────────────────────────────────────────
-const DAYS  = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
-const D3    = ['Mon','Tue','Wed','Thu','Fri'];
+const DAYS  = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const D3    = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const MONS  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+// Day name → JavaScript getDay() number (Sunday = 0 ... Saturday = 6).
+const DOW   = { Sunday:0, Monday:1, Tuesday:2, Wednesday:3, Thursday:4, Friday:5, Saturday:6 };
+// Short label indexed by getDay() (for the sheet's date headers).
+const DOW3  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 // ── STATE ────────────────────────────────────────────────────────────
 let db         = { classes: [] };
@@ -13,11 +17,26 @@ let autoTimer  = null;
 
 // ── BOOT ─────────────────────────────────────────────────────────────
 async function boot() {
+  applyZoom();
   const saved = await window.api.loadData();
   if (saved) db = saved;
   render();
   updateDate();
   setInterval(updateDate, 60 * 1000); // keep it correct if the app is left open past midnight
+}
+
+// ── UI ZOOM (accessibility) ──────────────────────────────────────────
+let uiZoom = parseFloat(localStorage.getItem('uiZoom')) || 1;
+function applyZoom() {
+  uiZoom = Math.min(1.8, Math.max(1, Math.round(uiZoom * 10) / 10));
+  document.documentElement.style.zoom = uiZoom;
+  const el = document.getElementById('zoomval');
+  if (el) el.textContent = Math.round(uiZoom * 100) + '%';
+}
+function setZoom(dir) {
+  uiZoom = Math.min(1.8, Math.max(1, Math.round((uiZoom + dir * 0.1) * 10) / 10));
+  localStorage.setItem('uiZoom', uiZoom);
+  applyZoom();
 }
 
 function updateDate() {
@@ -42,7 +61,7 @@ function ac()         { return getCls(activeId); }
 
 function genDates(s, e, days) {
   if (!s || !e || !days?.length) return [];
-  const res = [], idxs = days.map(d => DAYS.indexOf(d) + 1);
+  const res = [], idxs = days.map(d => DOW[d]);
   const cur = new Date(s + 'T12:00:00'), end = new Date(e + 'T12:00:00');
   while (cur <= end) {
     if (idxs.includes(cur.getDay())) res.push(cur.toISOString().slice(0,10));
@@ -64,7 +83,7 @@ function fmtShort(ds) {
 }
 function fmtHead(ds) {
   const d = new Date(ds + 'T12:00:00');
-  return `<span class="dh-dow">${D3[d.getDay()-1]}</span>`
+  return `<span class="dh-dow">${DOW3[d.getDay()]}</span>`
        + `<span class="dh-mon">${MONS[d.getMonth()]}</span>`
        + `<span class="dh-day">${d.getDate()}</span>`;
 }
@@ -191,6 +210,7 @@ function renderEditor(cls) {
       <div class="editor-cls-name" id="ecn">${h(cls?.name || 'Untitled Class')}${cls?.semester ? `<small>${h(cls.semester)}</small>` : ''}</div>
       <div class="tab-list">${tabHtml}</div>
       <div class="editor-toolbar">
+        <button class="btn btn-outline btn-sm" onclick="doExport(true)" title="Pick a different folder for exports">Change folder</button>
         <button class="btn btn-outline btn-sm" onclick="doExport()">${ico} Export Excel</button>
       </div>
     </div>
@@ -353,7 +373,6 @@ function renderSheet(cls) {
     </div>`;
   }
 
-  const ico = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="width:13px;height:13px"><path d="M8 2v8M5 7l3 3 3-3M3 12h10"/></svg>`;
   const today    = todayStr();
   const hasToday = dates.includes(today);
   const dh = dates.map(ds => `<th class="col-date-h${ds === today ? ' today' : ''}"${ds === today ? ' id="todaycol"' : ''}><div class="date-stack">${fmtHead(ds)}</div></th>`).join('');
@@ -386,7 +405,6 @@ function renderSheet(cls) {
     </div>
     <div class="sheet-bar-actions">
       ${hasToday ? `<button class="btn btn-outline btn-sm" onclick="scrollToToday()">Jump to Today</button>` : ''}
-      <button class="btn btn-outline btn-sm" onclick="doExport()">${ico} Export Excel</button>
     </div>
   </div>
   <div class="sheet-outer">
@@ -428,10 +446,12 @@ function cycleCell(sid, ds, btn) {
 }
 
 // ── EXPORT XLSX ──────────────────────────────────────────────────────
-async function doExport() {
+// choose=true forces the folder picker (used by "Change folder"); the new
+// location is then remembered for future exports.
+async function doExport(choose) {
   const cls = ac(); if (!cls) return;
-  const success = await window.api.exportXlsx(cls);
-  if (success) toast('Excel file saved successfully.');
+  const success = await window.api.exportXlsx(cls, !!choose);
+  if (success) toast(choose ? 'Export folder changed. File saved.' : 'Excel file saved successfully.');
 }
 
 // ── MODAL ────────────────────────────────────────────────────────────

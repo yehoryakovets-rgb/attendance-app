@@ -112,12 +112,13 @@ ipcMain.handle('save-data', (_, data) => {
   } catch (e) { return false; }
 });
 
-const DAYS_MAIN  = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
 const MONS_MAIN  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DOW_MAIN   = { Sunday:0, Monday:1, Tuesday:2, Wednesday:3, Thursday:4, Friday:5, Saturday:6 };
+const DOW3_MAIN  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 function genDatesMain(s, e, days) {
   if (!s || !e || !days?.length) return [];
-  const res = [], idxs = days.map(d => DAYS_MAIN.indexOf(d) + 1);
+  const res = [], idxs = days.map(d => DOW_MAIN[d]);
   const cur = new Date(s + 'T12:00:00'), end = new Date(e + 'T12:00:00');
   while (cur <= end) {
     if (idxs.includes(cur.getDay())) res.push(cur.toISOString().slice(0, 10));
@@ -128,7 +129,7 @@ function genDatesMain(s, e, days) {
 
 function fmtShortMain(ds) {
   const d = new Date(ds + 'T12:00:00');
-  return MONS_MAIN[d.getMonth()] + ' ' + d.getDate();
+  return DOW3_MAIN[d.getDay()] + ' ' + MONS_MAIN[d.getMonth()] + ' ' + d.getDate();
 }
 
 function statsMain(cls, sid, dates) {
@@ -145,11 +146,11 @@ function safeName(s) {
   return String(s || '').replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ').trim();
 }
 
-ipcMain.handle('export-xlsx', async (_, { cls }) => {
-  // Use the remembered base folder; only ask if we don't have a valid one yet.
+ipcMain.handle('export-xlsx', async (_, { cls, choose }) => {
+  // Use the remembered base folder; ask if requested (choose), or if none is valid yet.
   const settings = readSettings();
   let baseDir = settings.exportDir;
-  if (!baseDir || !fs.existsSync(baseDir)) {
+  if (choose || !baseDir || !fs.existsSync(baseDir)) {
     const res = await dialog.showOpenDialog({
       title: 'Choose a folder to keep all your attendance exports',
       buttonLabel: 'Use This Folder',
@@ -178,12 +179,12 @@ ipcMain.handle('export-xlsx', async (_, { cls }) => {
     const hdr = ['#', 'Student', 'Student ID', 'Abs/Tardy', ...dates.map(fmtShortMain), 'Absences', 'Tardies', 'Att %'];
     const data = cls.students.map((s, i) => {
       const st = statsMain(cls, s.id, dates);
-      return [i + 1, s.name, s.studentId || '', st.abs + '/' + st.tardy, ...dates.map(ds => cls.attendance?.[s.id]?.[ds] || 'P'), st.abs, st.tardy, st.pct / 100];
+      return [i + 1, s.name, s.studentId || '', st.abs + '/' + st.tardy, ...dates.map(ds => cls.attendance?.[s.id]?.[ds] || ''), st.abs, st.tardy, st.pct / 100];
     });
 
     const aoa = [...head.map(line => [line]), [], hdr, ...data];
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols'] = [{ wch: 4 }, { wch: 28 }, { wch: 14 }, { wch: 9 }, ...dates.map(() => ({ wch: 7 })), { wch: 9 }, { wch: 7 }, { wch: 8 }];
+    ws['!cols'] = [{ wch: 4 }, { wch: 28 }, { wch: 14 }, { wch: 9 }, ...dates.map(() => ({ wch: 10 })), { wch: 9 }, { wch: 7 }, { wch: 8 }];
 
     const enc = XLSX.utils.encode_cell;
     const nc = hdr.length, dc = 4, de = 4 + dates.length - 1;
