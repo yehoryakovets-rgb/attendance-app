@@ -64,14 +64,11 @@ function readAmFile(filePath) {
   return cls;
 }
 
-// Deliver a queued .am file to the window — creating a window first if the app
-// is running without one (e.g. the user closed it with the red button but it's
-// still in the Dock), or waiting for whenReady / did-finish-load if needed.
-function deliverPendingAm() {
-  if (!pendingOpenFile) return;
-  if (!app.isReady()) return;                        // whenReady() will retry
-  if (!mainWindow) { createWindow(); return; }       // did-finish-load will retry
-  if (mainWindow.webContents.isLoading()) return;    // did-finish-load will retry
+// Push an opened file to a window that's already loaded (the "warm" case).
+// For cold launch / freshly-created windows, the renderer instead PULLS the
+// pending file via 'get-pending-am' once it's ready — that avoids any race.
+function pushAmToWindow() {
+  if (!pendingOpenFile || !mainWindow || mainWindow.webContents.isLoading()) return;
   const fp = pendingOpenFile;
   pendingOpenFile = null;
   try {
@@ -99,7 +96,6 @@ function createWindow() {
     title: 'Attendance Manager',
   });
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
-  mainWindow.webContents.on('did-finish-load', deliverPendingAm);
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
@@ -107,8 +103,25 @@ function createWindow() {
 app.on('open-file', (event, filePath) => {
   event.preventDefault();
   pendingOpenFile = filePath;
-  deliverPendingAm();
+  if (!app.isReady()) return;                      // renderer pulls on boot
+  if (!mainWindow) { createWindow(); return; }     // renderer pulls on boot
+  if (mainWindow.webContents.isLoading()) return;  // renderer pulls on boot
+  pushAmToWindow();                                // window already open → push now
 });
+
+// The renderer calls this once it's fully ready, to pick up a file that was
+// queued during launch (cold start or window-less Dock app).
+ipcMain.handle('get-pending-am', () => {
+  if (!pendingOpenFile) return null;
+  const fp = pendingOpenFile;
+  pendingOpenFile = null;
+  try {
+    const cls = readAmFile(fp);
+    return cls ? { cls, path: fp } : null;
+  } catch (e) { return null; }
+});
+
+ipcMain.handle('get-version', () => app.getVersion());
 
 app.whenReady().then(() => {
   createWindow();

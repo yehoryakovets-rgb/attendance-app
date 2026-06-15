@@ -8,4 +8,6 @@ contextBridge.exposeInMainWorld('api', {
   openAm:      ()           => ipcRenderer.invoke('open-am'),
   writeAm:     (path, cls)  => ipcRenderer.invoke('write-am', { path, cls }),
   onOpenAm:    (cb)         => ipcRenderer.on('open-am-file', (_e, data) => cb(data)),
+  getPendingAm:()           => ipcRenderer.invoke('get-pending-am'),
+  getVersion:  ()           => ipcRenderer.invoke('get-version'),
 });

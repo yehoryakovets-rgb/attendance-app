@@ -44,6 +44,7 @@ button { cursor:pointer; }
 .titlebar-logo em { font-style:italic; opacity:.7; font-size:13px; margin-left:8px; font-family:var(--mono); font-weight:300; }
 .titlebar-date { font-family:var(--mono); font-size:11px; color:rgba(255,255,255,.7); letter-spacing:.04em; -webkit-app-region:no-drag; padding-left:16px; margin-left:4px; border-left:1px solid rgba(255,255,255,.18); }
 .titlebar-sep { flex:1; }
+.titlebar-ver { font-family:var(--mono); font-size:10px; color:rgba(255,255,255,.45); letter-spacing:.04em; }
 .titlebar-zoom { display:flex; align-items:center; gap:6px; -webkit-app-region:no-drag; margin-right:4px; }
 .zoom-btn { background:rgba(255,255,255,.14); color:#fff; border:none; border-radius:6px; min-width:28px; height:24px; font-size:13px; font-family:var(--mono); cursor:pointer; line-height:1; padding:0 6px; }
 .zoom-btn:hover { background:rgba(255,255,255,.28); }
@@ -205,6 +206,7 @@ tbody tr:hover .col-name-td, tbody tr:hover .col-sum-td { background:#f5f3ef; }
 <!-- Titlebar -->
 <div class="titlebar">
   <div class="titlebar-logo">Attendance <em>Manager</em></div>
+  <span class="titlebar-ver" id="verlabel"></span>
   <div class="titlebar-date" id="tbdate"></div>
   <div class="titlebar-sep"></div>
   <div class="titlebar-zoom" title="Make everything smaller or bigger">

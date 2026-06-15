@@ -33,8 +33,18 @@ async function boot() {
   render();
   updateDate();
   setInterval(updateDate, 60 * 1000); // keep it correct if the app is left open past midnight
+  try {
+    const v = await window.api.getVersion();
+    const el = document.getElementById('verlabel');
+    if (el && v) el.textContent = 'v' + v;
+  } catch (e) {}
   amReady = true;
-  if (amQueued) { const q = amQueued; amQueued = null; handleOpenAm(q); } // process a queued open
+  if (amQueued) { const q = amQueued; amQueued = null; handleOpenAm(q); } // warm push that arrived during boot
+  // Cold launch / window-less: pull any .am file queued during startup.
+  try {
+    const p = await window.api.getPendingAm();
+    if (p && p.cls) importAmClass(p.cls, p.path);
+  } catch (e) {}
 }
 
 // ── UI ZOOM (accessibility) ──────────────────────────────────────────
