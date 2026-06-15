@@ -64,19 +64,22 @@ function readAmFile(filePath) {
   return cls;
 }
 
-// Send an opened .am file's class to the renderer (or queue it until ready).
-function sendAmFile(filePath) {
+// Deliver a queued .am file to the window — creating a window first if the app
+// is running without one (e.g. the user closed it with the red button but it's
+// still in the Dock), or waiting for whenReady / did-finish-load if needed.
+function deliverPendingAm() {
+  if (!pendingOpenFile) return;
+  if (!app.isReady()) return;                        // whenReady() will retry
+  if (!mainWindow) { createWindow(); return; }       // did-finish-load will retry
+  if (mainWindow.webContents.isLoading()) return;    // did-finish-load will retry
+  const fp = pendingOpenFile;
+  pendingOpenFile = null;
   try {
-    const cls = readAmFile(filePath);
-    if (!cls) return;
-    if (mainWindow && mainWindow.webContents && !mainWindow.webContents.isLoading()) {
-      mainWindow.webContents.send('open-am-file', { cls, path: filePath });
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-    } else {
-      pendingOpenFile = filePath;
-    }
+    const cls = readAmFile(fp);
+    if (cls) mainWindow.webContents.send('open-am-file', { cls, path: fp });
   } catch (e) { /* ignore unreadable file */ }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.focus();
 }
 
 function createWindow() {
@@ -96,22 +99,21 @@ function createWindow() {
     title: 'Attendance Manager',
   });
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
-  mainWindow.webContents.on('did-finish-load', () => {
-    if (pendingOpenFile) { sendAmFile(pendingOpenFile); pendingOpenFile = null; }
-  });
+  mainWindow.webContents.on('did-finish-load', deliverPendingAm);
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
 // macOS fires this when a .am file is double-clicked (associated with the app).
 app.on('open-file', (event, filePath) => {
   event.preventDefault();
-  sendAmFile(filePath);
+  pendingOpenFile = filePath;
+  deliverPendingAm();
 });
 
 app.whenReady().then(() => {
   createWindow();
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (!mainWindow) createWindow();
   });
 });
 
