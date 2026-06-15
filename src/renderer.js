@@ -16,15 +16,25 @@ let saveTimer  = null;
 let autoTimer  = null;
 
 // ── BOOT ─────────────────────────────────────────────────────────────
+// Register the .am open-file listener IMMEDIATELY (before any await) so a
+// cold-launch double-click isn't missed. If data isn't loaded yet, buffer it.
+let amReady = false, amQueued = null;
+function handleOpenAm(data) {
+  if (!data || !data.cls) return;
+  if (!amReady) { amQueued = data; return; }  // arrived before data finished loading
+  importAmClass(data.cls, data.path);
+}
+window.api.onOpenAm(handleOpenAm);
+
 async function boot() {
   applyZoom();
   const saved = await window.api.loadData();
   if (saved) db = saved;
-  // Open a class when a .am file is double-clicked (or opened) on macOS.
-  window.api.onOpenAm(({ cls, path }) => importAmClass(cls, path));
   render();
   updateDate();
   setInterval(updateDate, 60 * 1000); // keep it correct if the app is left open past midnight
+  amReady = true;
+  if (amQueued) { const q = amQueued; amQueued = null; handleOpenAm(q); } // process a queued open
 }
 
 // ── UI ZOOM (accessibility) ──────────────────────────────────────────
