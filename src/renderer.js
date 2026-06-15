@@ -416,10 +416,13 @@ function parseRoster(text) {
       const spaced = nameParts.filter(p => /\s/.test(p)).sort((a, b) => b.length - a.length);
       name = spaced.length ? spaced[0] : nameParts.join(', ');
     } else {
-      // A single line like "First Last 12345678" or "12345678  First Last".
-      const m = raw.match(/\d{5,}/);
-      studentId = m ? m[0] : '';
-      name = raw.replace(/\d{5,}/g, '').replace(/\s{2,}/g, ' ').trim().replace(/^[,\s]+|[,\s]+$/g, '');
+      // A single space-separated line like "First Last 12345678",
+      // "12345678 First Last", or "First 12345678 email@x.com".
+      const tokens = raw.split(/\s+/).filter(Boolean);
+      if (ROLE_SKIP.test(tokens.find(t => ROLE_ANY.test(t)) || '')) continue; // drop instructors / TAs
+      studentId = tokens.find(t => /^\d{5,}$/.test(t)) || '';
+      // Keep word tokens; drop the ID, emails, and role words.
+      name = tokens.filter(t => /[A-Za-z]/.test(t) && !t.includes('@') && !ROLE_ANY.test(t)).join(' ');
     }
 
     if (!name || name.includes('@') || !/[A-Za-z]/.test(name)) continue;
