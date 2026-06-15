@@ -333,6 +333,7 @@ function renderRoster(cls) {
       <input class="field-input" id="ni" placeholder="Student full name" onkeydown="if(event.key==='Enter') document.getElementById('si').focus()">
       <input class="field-input s-id-input" id="si" placeholder="Student ID" onkeydown="if(event.key==='Enter') addStu()">
       <button class="btn btn-green" onclick="addStu()">Add</button>
+      <button class="btn btn-outline" onclick="pasteRosterModal()" title="Paste a class list copied from Brightspace">Paste class list</button>
     </div>
     ${cls.students.length
       ? `<div class="student-list">${rows}</div>
@@ -349,6 +350,109 @@ function addStu() {
   ac().students.push({ id: uid(), name, studentId });
   save(); render();
   setTimeout(() => document.getElementById('ni')?.focus(), 50);
+}
+
+// ── PASTE CLASS LIST (e.g. copied from Brightspace) ──────────────────
+// Pull Name + Student ID out of a pasted, tab-separated class list and skip
+// non-student roles (Instructor / Teaching Assistant) and extra columns
+// (email, username, dates, etc.).
+const ROLE_SKIP = /^(instructor|teaching assistant|ta|course builder|grader)$/i;
+const ROLE_ANY  = /^(learner|student|instructor|teaching assistant|ta|course builder|grader|auditor)$/i;
+
+function parseRoster(text) {
+  // If the paste came straight from Brightspace it has "View Profile for …"
+  // markers; otherwise treat it as a plain Name + ID list.
+  const isBrightspace = /view profile for/i.test(text);
+  // If the list contains real IDs (5+ digit numbers) anywhere, require an ID on
+  // each kept row — that automatically drops titles, headers and stray text.
+  const hasIds = /\d{5,}/.test(text);
+  const out = [];
+  const seen = new Set();
+
+  for (const raw of String(text).split(/\r?\n/)) {
+    if (!raw.trim()) continue;
+    let name = '', studentId = '';
+
+    if (isBrightspace) {
+      if (!/view profile for/i.test(raw)) continue; // skip headers / blank rows
+      const cells = raw.split('\t').map(c => c.trim()).filter(Boolean);
+      const vp = cells.find(c => /^view profile for\s+/i.test(c));
+      name = vp ? vp.replace(/^view profile for\s+/i, '').trim() : '';
+      studentId = cells.find(c => /^\d{5,}$/.test(c)) || '';
+      const role = cells.find(c => ROLE_ANY.test(c)) || '';
+      if (!name || !studentId) continue;
+      if (ROLE_SKIP.test(role)) continue;      // drop instructors / TAs
+    } else if (raw.includes('\t') || raw.includes(',')) {
+      // Delimited (tabs from Excel, or commas from a CSV). Split on both, then
+      // pick the ID and rebuild the name from the leftover word cells.
+      const cells = raw.split(/[\t,]/).map(c => c.trim()).filter(Boolean);
+      if (ROLE_SKIP.test(cells.find(c => ROLE_ANY.test(c)) || '')) continue; // drop instructors / TAs
+      studentId = cells.find(c => /^\d{5,}$/.test(c)) || '';
+      const nameParts = cells.filter(c =>
+        /[A-Za-z]/.test(c) && !c.includes('@') && !/^\d+$/.test(c) && !ROLE_ANY.test(c)
+      ).map(c => c.replace(/\s+is online$/i, '').trim());
+      // A cell with a space is already a full name ("First Last"); otherwise the
+      // name was split across cells ("Last", "First") so re-join with a comma.
+      const spaced = nameParts.filter(p => /\s/.test(p)).sort((a, b) => b.length - a.length);
+      name = spaced.length ? spaced[0] : nameParts.join(', ');
+    } else {
+      // A single line like "First Last 12345678" or "12345678  First Last".
+      const m = raw.match(/\d{5,}/);
+      studentId = m ? m[0] : '';
+      name = raw.replace(/\d{5,}/g, '').replace(/\s{2,}/g, ' ').trim().replace(/^[,\s]+|[,\s]+$/g, '');
+    }
+
+    if (!name || name.includes('@') || !/[A-Za-z]/.test(name)) continue;
+    if (/^(name|student|students|first name|last name|full name|student id|id|email|username|role)$/i.test(name)) continue; // header words
+    if (!isBrightspace && hasIds && !studentId) continue; // drop non-student junk when IDs are present
+    if (studentId && seen.has(studentId)) continue;       // de-duplicate by ID
+    if (studentId) seen.add(studentId);
+    out.push({ name, studentId });
+  }
+  return out;
+}
+
+let pendingPaste = [];
+
+function pasteRosterModal() {
+  modal(
+    'Paste class list',
+    `<p style="color:var(--text2);font-size:13px;margin-bottom:10px">Copy the class list from Brightspace and paste it below. It keeps only names and student IDs (instructors & TAs are skipped).</p>
+     <textarea id="pastebox" class="field-input" style="height:120px;font-family:var(--mono);font-size:11px;resize:vertical" placeholder="Paste here…" oninput="updatePastePreview()"></textarea>
+     <div id="pastepreview" style="margin-top:10px;font-size:12px;color:var(--text3)"></div>`,
+    [
+      { label: 'Cancel', cls: 'btn-outline', cb: closeModal },
+      { label: 'Add students', cls: 'btn-green', cb: importPasted },
+    ]
+  );
+  setTimeout(() => document.getElementById('pastebox')?.focus(), 60);
+}
+
+function updatePastePreview() {
+  pendingPaste = parseRoster(document.getElementById('pastebox')?.value || '');
+  const el = document.getElementById('pastepreview');
+  if (!el) return;
+  if (!pendingPaste.length) { el.innerHTML = 'No students detected yet.'; return; }
+  const rows = pendingPaste.map((s, i) =>
+    `<tr><td style="padding:2px 8px;color:var(--text3)">${i+1}</td><td style="padding:2px 8px;color:var(--text)">${h(s.name)}</td><td style="padding:2px 8px;font-family:var(--mono);color:var(--text2)">${h(s.studentId)}</td></tr>`
+  ).join('');
+  el.innerHTML = `<div style="margin-bottom:6px;color:var(--accent);font-weight:600">Found ${pendingPaste.length} student${pendingPaste.length !== 1 ? 's' : ''}:</div>
+    <div style="max-height:220px;overflow:auto;border:1px solid var(--border);border-radius:6px"><table style="border-collapse:collapse;width:100%">${rows}</table></div>`;
+}
+
+function importPasted() {
+  const cls = ac(); if (!cls) return;
+  const existing = new Set(cls.students.map(s => (s.studentId || '').trim()).filter(Boolean));
+  let added = 0;
+  for (const s of pendingPaste) {
+    if (s.studentId && existing.has(s.studentId)) continue; // skip duplicates by ID
+    cls.students.push({ id: uid(), name: s.name, studentId: s.studentId });
+    if (s.studentId) existing.add(s.studentId);
+    added++;
+  }
+  pendingPaste = [];
+  closeModal(); save(); render();
+  toast(added ? `Added ${added} student${added !== 1 ? 's' : ''}.` : 'No new students to add.');
 }
 
 // Edit a student's name or ID in place (no add/delete needed).
