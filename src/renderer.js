@@ -28,11 +28,14 @@ window.api.onOpenAm(handleOpenAm);
 
 async function boot() {
   applyZoom();
+  applyTheme();
+  document.addEventListener('click', closeAccentMenu); // click anywhere else closes the menu
   const saved = await window.api.loadData();
   if (saved) db = saved;
   render();
   updateDate();
   setInterval(updateDate, 60 * 1000); // keep it correct if the app is left open past midnight
+  window.addEventListener('resize', () => { if (view === 'editor' && activeTab === 'sheet') syncFrozen(); });
   try {
     const v = await window.api.getVersion();
     const el = document.getElementById('verlabel');
@@ -60,6 +63,64 @@ function setZoom(dir) {
   localStorage.setItem('uiZoom', uiZoom);
   applyZoom();
 }
+
+// ── ACCENT COLOR THEMES ──────────────────────────────────────────────
+// accent/d/l/l2 = light mode; dk = brighter accent for dark mode; rgb is used
+// to build subtle tints over the dark background.
+const ACCENTS = {
+  turquoise: { name: 'Turquoise', accent: '#0f9b9b', d: '#0b7575', l: '#e6f5f5', l2: '#c2e8e8', dk: '#16abab', rgb: '15,155,155' },
+  blue:      { name: 'Blue',      accent: '#2b6cb0', d: '#1f4f83', l: '#e9f1fa', l2: '#cfe1f4', dk: '#3f80c4', rgb: '43,108,176' },
+  purple:    { name: 'Purple',    accent: '#7048b6', d: '#523487', l: '#f0ebfa', l2: '#ddd0f0', dk: '#875fce', rgb: '112,72,182' },
+  green:     { name: 'Green',     accent: '#3b6b4a', d: '#2a4e36', l: '#eaf2ec', l2: '#d4e8d8', dk: '#4d8560', rgb: '59,107,74' },
+  teal:      { name: 'Teal',      accent: '#1a7a7a', d: '#125858', l: '#e6f4f4', l2: '#c2e4e4', dk: '#259494', rgb: '26,122,122' },
+  burgundy:  { name: 'Burgundy',  accent: '#8a2e3b', d: '#6a222c', l: '#f7e9eb', l2: '#ecd0d5', dk: '#b24452', rgb: '138,46,59' },
+  orange:    { name: 'Orange',    accent: '#c4661a', d: '#9b4f13', l: '#fcefe3', l2: '#f5d9c2', dk: '#d4771f', rgb: '196,102,26' },
+  slate:     { name: 'Slate',     accent: '#4a5568', d: '#333b49', l: '#edeff2', l2: '#d6dae1', dk: '#7d899c', rgb: '74,85,104' },
+};
+let uiAccent = ACCENTS[localStorage.getItem('uiAccent')] ? localStorage.getItem('uiAccent') : 'turquoise';
+let darkMode = localStorage.getItem('uiTheme') === 'dark';
+
+function applyAccent() {
+  const a = ACCENTS[uiAccent] || ACCENTS.turquoise;
+  const r = document.documentElement.style;
+  r.setProperty('--accent', darkMode ? a.dk : a.accent);
+  r.setProperty('--accent-d', darkMode ? a.accent : a.d);
+  r.setProperty('--accent-l', darkMode ? `rgba(${a.rgb},0.18)` : a.l);
+  r.setProperty('--accent-l2', darkMode ? `rgba(${a.rgb},0.34)` : a.l2);
+  r.setProperty('--accent-glow', `rgba(${a.rgb},0.16)`);
+  const dot = document.getElementById('accentdot');
+  if (dot) dot.style.background = darkMode ? a.dk : a.accent;
+}
+function setAccent(key) {
+  if (!ACCENTS[key]) return;
+  uiAccent = key;
+  localStorage.setItem('uiAccent', uiAccent);
+  applyAccent();
+  closeAccentMenu();
+}
+function applyTheme() {
+  document.documentElement.classList.toggle('dark', darkMode);
+  const btn = document.getElementById('themebtn');
+  if (btn) btn.textContent = darkMode ? '☀️' : '🌙';
+  applyAccent();
+}
+function toggleTheme() {
+  darkMode = !darkMode;
+  localStorage.setItem('uiTheme', darkMode ? 'dark' : 'light');
+  applyTheme();
+}
+function buildAccentMenu() {
+  const m = document.getElementById('accentmenu');
+  if (m) m.innerHTML = Object.entries(ACCENTS).map(([k, a]) =>
+    `<button class="accent-swatch${k === uiAccent ? ' on' : ''}" onclick="setAccent('${k}')"><i style="background:${a.accent}"></i>${a.name}</button>`
+  ).join('');
+}
+function toggleAccentMenu(e) {
+  e.stopPropagation();
+  buildAccentMenu();
+  document.getElementById('accentmenu')?.classList.toggle('open');
+}
+function closeAccentMenu() { document.getElementById('accentmenu')?.classList.remove('open'); }
 
 function updateDate() {
   const el = document.getElementById('tbdate');
@@ -145,7 +206,7 @@ function render() {
     const cls = ac();
     crumb.innerHTML = `<span>All Classes</span> <span>/</span> <span class="ca">${h(cls?.name || 'Untitled')}</span>`;
     root.innerHTML  = renderEditor(cls);
-    if (activeTab === 'sheet') setTimeout(scrollToToday, 60);
+    if (activeTab === 'sheet') { syncFrozen(); setTimeout(() => { syncFrozen(); scrollToToday(); }, 60); }
   }
 }
 
@@ -514,8 +575,9 @@ function renderSheet(cls) {
     </div>`;
   }
 
-  const today    = todayStr();
-  const hasToday = dates.includes(today);
+  const today     = todayStr();
+  const hasToday  = dates.includes(today);
+  const hasEmails = cls.students.some(s => (s.email || '').trim()); // only show the Email column if any exist
   const dh = dates.map(ds => `<th class="col-date-h${ds === today ? ' today' : ''}"${ds === today ? ' id="todaycol"' : ''}><div class="date-stack">${fmtHead(ds)}</div></th>`).join('');
 
   const rows = cls.students.map((s, si) => {
@@ -528,7 +590,7 @@ function renderSheet(cls) {
     const pc = st.pct < 80 ? 'vpl' : st.pct < 90 ? 'vpm' : 'vpok';
     return `<tr>
       <td class="col-name-td"><div class="name-inner"><span class="row-num">${String(si+1).padStart(2,'0')}</span><span class="name-text"><span class="name-main">${h(s.name)}</span>${s.studentId ? `<span class="row-sid">${h(s.studentId)}</span>` : ''}</span></div></td>
-      <td class="col-email-td"><span class="email-cell" title="${h(s.email || '')}">${h(s.email || '')}</span></td>
+      ${hasEmails ? `<td class="col-email-td"><span class="email-cell" title="${h(s.email || '')}">${h(s.email || '')}</span></td>` : ''}
       <td class="col-sum-td"><span class="sum-badge${bad ? ' bad' : ''}" id="sum-${s.id}">${st.abs}/${st.tardy}</span></td>
       ${cells}
       <td class="col-stat-td"><span class="${st.abs > 0 ? 'va' : 'vok'}" id="sa-${s.id}">${st.abs}</span></td>
@@ -549,11 +611,11 @@ function renderSheet(cls) {
       ${hasToday ? `<button class="btn btn-outline btn-sm" onclick="scrollToToday()">Jump to Today</button>` : ''}
     </div>
   </div>
-  <div class="sheet-outer">
+  <div class="sheet-outer${hasEmails ? ' has-email' : ''}">
     <table>
       <thead><tr>
         <th class="col-name-h">Student</th>
-        <th class="col-email-h">Email</th>
+        ${hasEmails ? '<th class="col-email-h">Email</th>' : ''}
         <th class="col-sum-h">Abs/T</th>
         ${dh}
         <th class="col-stat-h">Abs</th>
@@ -568,6 +630,20 @@ function renderSheet(cls) {
 function scrollToToday() {
   const el = document.getElementById('todaycol');
   if (el) el.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+}
+
+// Measure the (content-sized) Name/Email columns and set the frozen left-offsets
+// for the Email and Abs/T columns, so frozen columns can be adaptive width.
+function syncFrozen() {
+  const outer = document.querySelector('.sheet-outer');
+  if (!outer) return;
+  const nameH = outer.querySelector('.col-name-h');
+  if (!nameH) return;
+  const emailH = outer.querySelector('.col-email-h');
+  const nameW  = nameH.getBoundingClientRect().width;
+  const emailW = emailH ? emailH.getBoundingClientRect().width : 0;
+  outer.style.setProperty('--email-left', nameW + 'px');
+  outer.style.setProperty('--sum-left', (nameW + emailW) + 'px');
 }
 
 function cycleCell(sid, ds, btn) {

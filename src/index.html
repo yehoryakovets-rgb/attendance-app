@@ -10,10 +10,11 @@
   --bg:#f5f2ed; --bg2:#ede9e1; --surface:#fff; --surface2:#f9f7f4;
   --border:#e4dfd6; --border2:#d4cec4;
   --text:#1c1a17; --text2:#5c574f; --text3:#9e9890;
-  --accent:#0f9b9b; --accent-d:#0b7575; --accent-l:#e6f5f5; --accent-l2:#c2e8e8;
-  --amber:#b06a1a; --amber-bg:#fdf5ea;
-  --red:#b03030; --red-bg:#fdf0f0;
+  --accent:#0f9b9b; --accent-d:#0b7575; --accent-l:#e6f5f5; --accent-l2:#c2e8e8; --accent-glow:rgba(15,155,155,.14);
+  --amber:#b06a1a; --amber-bg:#fdf5ea; --amber-bg-h:#faecd5;
+  --red:#b03030; --red-bg:#fdf0f0; --red-bg-h:#fae4e4; --red-border:#f0cece;
   --green:#2d6b3a;
+  --hover:#f5f3ef;
   --shadow-sm:0 1px 2px rgba(0,0,0,.05),0 2px 8px rgba(0,0,0,.04);
   --shadow:0 2px 4px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.06);
   --shadow-lg:0 4px 8px rgba(0,0,0,.08),0 20px 60px rgba(0,0,0,.1);
@@ -21,6 +22,19 @@
   --mono:'IBM Plex Mono',monospace;
   --sans:'IBM Plex Sans',sans-serif;
   --serif:'Playfair Display',serif;
+}
+/* ── DARK THEME ── (accent-l / accent-l2 are set per-accent in JS) */
+.dark {
+  --bg:#15171c; --bg2:#1c1f26; --surface:#1e2128; --surface2:#23272f;
+  --border:#2b303a; --border2:#3a4250;
+  --text:#e7e9ee; --text2:#aab1be; --text3:#7b8493;
+  --amber:#d99a4e; --amber-bg:#332d1f; --amber-bg-h:#3f3826;
+  --red:#e88080; --red-bg:#342227; --red-bg-h:#42282e; --red-border:#4a2e34;
+  --green:#5fb872;
+  --hover:#262b34;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3),0 2px 8px rgba(0,0,0,.25);
+  --shadow:0 2px 4px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.35);
+  --shadow-lg:0 4px 8px rgba(0,0,0,.45),0 20px 60px rgba(0,0,0,.55);
 }
 *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
 html, body { height:100%; background:#f5f2ed; color:#1c1a17; color-scheme:light; }
@@ -45,6 +59,18 @@ button { cursor:pointer; }
 .titlebar-date { font-family:var(--mono); font-size:11px; color:rgba(255,255,255,.7); letter-spacing:.04em; -webkit-app-region:no-drag; padding-left:16px; margin-left:4px; border-left:1px solid rgba(255,255,255,.18); }
 .titlebar-sep { flex:1; }
 .titlebar-ver { font-family:var(--mono); font-size:10px; color:rgba(255,255,255,.45); letter-spacing:.04em; }
+.titlebar-accent { position:relative; -webkit-app-region:no-drag; }
+.accent-btn { background:rgba(255,255,255,.14); border:none; border-radius:6px; width:28px; height:24px; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; }
+.accent-btn:hover { background:rgba(255,255,255,.28); }
+.accent-dot { width:13px; height:13px; border-radius:50%; background:var(--accent); display:block; box-shadow:0 0 0 1px rgba(255,255,255,.45); }
+.accent-menu { position:absolute; top:30px; right:0; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow-lg); padding:6px; display:none; flex-direction:column; gap:1px; z-index:100; min-width:150px; }
+.accent-menu.open { display:flex; }
+.accent-swatch { display:flex; align-items:center; gap:9px; background:none; border:none; padding:7px 10px; border-radius:6px; cursor:pointer; font-size:12px; color:var(--text); text-align:left; font-family:inherit; }
+.accent-swatch:hover { background:var(--bg2); }
+.accent-swatch.on { background:var(--accent-l); font-weight:600; }
+.accent-swatch i { width:15px; height:15px; border-radius:50%; flex-shrink:0; box-shadow:0 0 0 1px rgba(0,0,0,.08); }
+.theme-btn { background:rgba(255,255,255,.14); border:none; border-radius:6px; width:28px; height:24px; cursor:pointer; font-size:12px; line-height:1; -webkit-app-region:no-drag; padding:0; }
+.theme-btn:hover { background:rgba(255,255,255,.28); }
 .titlebar-zoom { display:flex; align-items:center; gap:6px; -webkit-app-region:no-drag; margin-right:4px; }
 .zoom-btn { background:rgba(255,255,255,.14); color:#fff; border:none; border-radius:6px; min-width:28px; height:24px; font-size:13px; font-family:var(--mono); cursor:pointer; line-height:1; padding:0 6px; }
 .zoom-btn:hover { background:rgba(255,255,255,.28); }
@@ -62,7 +88,7 @@ button { cursor:pointer; }
 .btn svg { width:14px; height:14px; flex-shrink:0; }
 .btn-green { background:var(--accent); color:#fff; } .btn-green:hover { background:var(--accent-d); }
 .btn-outline { background:var(--surface); color:var(--text2); border:1px solid var(--border2); } .btn-outline:hover { border-color:var(--accent); color:var(--accent); }
-.btn-danger { background:var(--red-bg); color:var(--red); border:1px solid #f0cece; } .btn-danger:hover { background:#fae4e4; }
+.btn-danger { background:var(--red-bg); color:var(--red); border:1px solid var(--red-border); } .btn-danger:hover { background:var(--red-bg-h); }
 .btn-sm { padding:6px 13px; font-size:11px; }
 .btn:disabled { opacity:.38; pointer-events:none; }
 
@@ -112,7 +138,7 @@ button { cursor:pointer; }
 .form-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:22px; }
 .field-label { display:block; font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--text3); margin-bottom:7px; }
 .field-input { width:100%; padding:10px 13px; background:var(--surface); border:1px solid var(--border2); border-radius:var(--radius); color:var(--text); font-size:13px; outline:none; transition:border-color .15s, box-shadow .15s; }
-.field-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(15,155,155,.12); }
+.field-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-glow); }
 .field-input::placeholder { color:var(--text3); }
 .days-row { display:flex; gap:8px; flex-wrap:wrap; }
 .day-pill { padding:7px 14px; border-radius:var(--radius); font-family:var(--mono); font-size:11px; letter-spacing:.06em; border:1px solid var(--border2); background:var(--surface); color:var(--text2); cursor:pointer; transition:all .15s; }
@@ -135,7 +161,7 @@ button { cursor:pointer; }
 .s-sid { font-family:var(--mono); font-size:11px; color:var(--text3); background:var(--bg2); border:1px solid var(--border); border-radius:6px; padding:3px 8px; }
 .s-edit { border:1px solid transparent; background:transparent; border-radius:6px; padding:6px 8px; font-size:13px; color:var(--text); font-family:inherit; outline:none; transition:border-color .15s, background .15s, box-shadow .15s; }
 .s-edit:hover { border-color:var(--border2); }
-.s-edit:focus { border-color:var(--accent); background:var(--surface); box-shadow:0 0 0 3px rgba(15,155,155,.12); }
+.s-edit:focus { border-color:var(--accent); background:var(--surface); box-shadow:0 0 0 3px var(--accent-glow); }
 .s-edit-name { flex:1; min-width:120px; }
 .s-edit-email { flex:1; min-width:120px; font-size:12px; color:var(--text2); }
 .s-edit-id { flex:0 0 130px; font-family:var(--mono); font-size:12px; color:var(--text3); }
@@ -153,13 +179,15 @@ button { cursor:pointer; }
 .col-att-td.today { background:var(--accent-l); }
 .sheet-outer { overflow-x:auto; border-radius:10px; border:1px solid var(--border); box-shadow:var(--shadow); background:var(--surface); }
 table { border-collapse:collapse; width:100%; }
-.col-name-h, .col-name-td { position:sticky; left:0; z-index:3; background:var(--surface2); border-right:1px solid var(--border2); min-width:210px; width:210px; max-width:210px; }
+/* Name & Email size to their content (capped); the frozen left-offsets for the
+   Email and Abs/T columns are computed in JS (syncFrozen) into CSS variables. */
+.col-name-h, .col-name-td { position:sticky; left:0; z-index:3; background:var(--surface2); border-right:1px solid var(--border2); min-width:160px; white-space:nowrap; }
 .col-name-h { background:var(--bg2); z-index:4; }
-.col-email-h, .col-email-td { position:sticky; left:210px; z-index:3; background:var(--surface2); border-right:1px solid var(--border2); min-width:190px; width:190px; max-width:190px; }
-.col-email-h { background:var(--bg2); z-index:4; text-align:left; padding:10px 12px; }
-.col-email-td { padding:0 12px; }
-.email-cell { display:block; max-width:166px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; color:var(--text2); }
-.col-sum-h, .col-sum-td { position:sticky; left:400px; z-index:3; background:var(--surface2); border-right:2px solid var(--border2); min-width:56px; width:56px; }
+.col-email-h, .col-email-td { position:sticky; left:var(--email-left, 160px); z-index:3; background:var(--surface2); border-right:1px solid var(--border2); min-width:150px; white-space:nowrap; }
+.col-email-h { background:var(--bg2); z-index:4; text-align:left; padding:10px 14px; }
+.col-email-td { padding:0 14px; }
+.email-cell { display:block; max-width:380px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; color:var(--text2); }
+.col-sum-h, .col-sum-td { position:sticky; left:var(--sum-left, 216px); z-index:3; background:var(--surface2); border-right:2px solid var(--border2); min-width:56px; width:56px; }
 .col-sum-h { background:var(--bg2); z-index:4; }
 thead th { background:var(--bg2); font-family:var(--mono); font-size:10px; letter-spacing:.07em; text-transform:uppercase; color:var(--text3); font-weight:500; border-bottom:1px solid var(--border); white-space:nowrap; }
 .col-name-h { text-align:left; padding:10px 16px; }
@@ -172,12 +200,12 @@ thead th { background:var(--bg2); font-family:var(--mono); font-size:10px; lette
 .col-stat-h { min-width:52px; text-align:center; padding:10px 6px; border-left:1px solid var(--border); }
 tbody tr { border-bottom:1px solid var(--border); }
 tbody tr:last-child { border-bottom:none; }
-tbody tr:hover .col-name-td, tbody tr:hover .col-email-td, tbody tr:hover .col-sum-td { background:#f5f3ef; }
+tbody tr:hover .col-name-td, tbody tr:hover .col-email-td, tbody tr:hover .col-sum-td { background:var(--hover); }
 .col-name-td { padding:0 16px; }
 .name-inner { display:flex; align-items:center; gap:8px; height:46px; color:var(--text); overflow:hidden; }
 .row-num { font-family:var(--mono); font-size:10px; color:var(--border2); min-width:18px; }
 .name-text { display:flex; flex-direction:column; line-height:1.25; min-width:0; }
-.name-main { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.name-main { display:block; max-width:300px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .row-sid { font-family:var(--mono); font-size:10px; color:var(--text3); }
 .col-sum-td { padding:0 4px; text-align:center; }
 .sum-badge { font-family:var(--mono); font-size:11px; font-weight:500; color:var(--text2); }
@@ -185,8 +213,8 @@ tbody tr:hover .col-name-td, tbody tr:hover .col-email-td, tbody tr:hover .col-s
 .col-att-td { text-align:center; padding:0; }
 .att-cell { width:46px; height:46px; border:none; background:none; cursor:pointer; font-family:var(--mono); font-size:12px; font-weight:500; color:var(--text3); transition:background .1s; display:flex; align-items:center; justify-content:center; margin:0 auto; }
 .att-cell:hover { background:var(--bg2); }
-.att-cell.A { background:var(--red-bg); color:var(--red); } .att-cell.A:hover { background:#fae4e4; }
-.att-cell.T { background:var(--amber-bg); color:var(--amber); } .att-cell.T:hover { background:#faecd5; }
+.att-cell.A { background:var(--red-bg); color:var(--red); } .att-cell.A:hover { background:var(--red-bg-h); }
+.att-cell.T { background:var(--amber-bg); color:var(--amber); } .att-cell.T:hover { background:var(--amber-bg-h); }
 .col-stat-td { text-align:center; padding:0 6px; border-left:1px solid var(--border); font-family:var(--mono); font-size:12px; font-weight:500; }
 .va { color:var(--red); } .vt { color:var(--amber); } .vok { color:var(--green); }
 .vpl { color:var(--red); font-weight:600; } .vpm { color:var(--amber); } .vpok { color:var(--green); }
@@ -215,6 +243,11 @@ tbody tr:hover .col-name-td, tbody tr:hover .col-email-td, tbody tr:hover .col-s
   <span class="titlebar-ver" id="verlabel"></span>
   <div class="titlebar-date" id="tbdate"></div>
   <div class="titlebar-sep"></div>
+  <div class="titlebar-accent" id="accentwrap">
+    <button class="accent-btn" id="accentbtn" onclick="toggleAccentMenu(event)" title="Accent color"><span class="accent-dot" id="accentdot"></span></button>
+    <div class="accent-menu" id="accentmenu"></div>
+  </div>
+  <button class="theme-btn" id="themebtn" onclick="toggleTheme()" title="Light / dark theme">🌙</button>
   <div class="titlebar-zoom" title="Make everything smaller or bigger">
     <button class="zoom-btn" onclick="setZoom(-1)" title="Smaller">A −</button>
     <span class="zoom-val" id="zoomval">100%</span>
