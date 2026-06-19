@@ -124,10 +124,10 @@ button { cursor:pointer; }
 .danger-zone h3 { font-family:var(--mono); font-size:10px; letter-spacing:.15em; text-transform:uppercase; color:var(--text3); margin-bottom:12px; }
 
 /* ── ROSTER ── */
-.roster-wrap { max-width:500px; }
-.add-row { display:flex; gap:10px; margin-bottom:18px; }
-.add-row .field-input { flex:1; }
-.add-row .s-id-input { flex:0 0 150px; }
+.roster-wrap { max-width:760px; }
+.add-row { display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
+.add-row .field-input { flex:1; min-width:140px; }
+.add-row .s-id-input { flex:0 0 130px; }
 .student-list { display:grid; gap:7px; }
 .student-item { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:11px 14px; display:flex; align-items:center; gap:10px; box-shadow:var(--shadow-sm); }
 .s-num { font-family:var(--mono); font-size:11px; color:var(--border2); min-width:22px; }
@@ -136,8 +136,9 @@ button { cursor:pointer; }
 .s-edit { border:1px solid transparent; background:transparent; border-radius:6px; padding:6px 8px; font-size:13px; color:var(--text); font-family:inherit; outline:none; transition:border-color .15s, background .15s, box-shadow .15s; }
 .s-edit:hover { border-color:var(--border2); }
 .s-edit:focus { border-color:var(--accent); background:var(--surface); box-shadow:0 0 0 3px rgba(15,155,155,.12); }
-.s-edit-name { flex:1; }
-.s-edit-id { flex:0 0 140px; font-family:var(--mono); font-size:12px; color:var(--text3); }
+.s-edit-name { flex:1; min-width:120px; }
+.s-edit-email { flex:1; min-width:120px; font-size:12px; color:var(--text2); }
+.s-edit-id { flex:0 0 130px; font-family:var(--mono); font-size:12px; color:var(--text3); }
 .s-del { background:none; border:none; color:var(--border2); font-size:18px; line-height:1; cursor:pointer; padding:2px 4px; transition:color .15s; }
 .s-del:hover { color:var(--red); }
 
@@ -152,9 +153,13 @@ button { cursor:pointer; }
 .col-att-td.today { background:var(--accent-l); }
 .sheet-outer { overflow-x:auto; border-radius:10px; border:1px solid var(--border); box-shadow:var(--shadow); background:var(--surface); }
 table { border-collapse:collapse; width:100%; }
-.col-name-h, .col-name-td { position:sticky; left:0; z-index:3; background:var(--surface2); border-right:1px solid var(--border2); min-width:210px; }
+.col-name-h, .col-name-td { position:sticky; left:0; z-index:3; background:var(--surface2); border-right:1px solid var(--border2); min-width:210px; width:210px; max-width:210px; }
 .col-name-h { background:var(--bg2); z-index:4; }
-.col-sum-h, .col-sum-td { position:sticky; left:210px; z-index:3; background:var(--surface2); border-right:2px solid var(--border2); min-width:56px; width:56px; }
+.col-email-h, .col-email-td { position:sticky; left:210px; z-index:3; background:var(--surface2); border-right:1px solid var(--border2); min-width:190px; width:190px; max-width:190px; }
+.col-email-h { background:var(--bg2); z-index:4; text-align:left; padding:10px 12px; }
+.col-email-td { padding:0 12px; }
+.email-cell { display:block; max-width:166px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; color:var(--text2); }
+.col-sum-h, .col-sum-td { position:sticky; left:400px; z-index:3; background:var(--surface2); border-right:2px solid var(--border2); min-width:56px; width:56px; }
 .col-sum-h { background:var(--bg2); z-index:4; }
 thead th { background:var(--bg2); font-family:var(--mono); font-size:10px; letter-spacing:.07em; text-transform:uppercase; color:var(--text3); font-weight:500; border-bottom:1px solid var(--border); white-space:nowrap; }
 .col-name-h { text-align:left; padding:10px 16px; }
@@ -167,11 +172,12 @@ thead th { background:var(--bg2); font-family:var(--mono); font-size:10px; lette
 .col-stat-h { min-width:52px; text-align:center; padding:10px 6px; border-left:1px solid var(--border); }
 tbody tr { border-bottom:1px solid var(--border); }
 tbody tr:last-child { border-bottom:none; }
-tbody tr:hover .col-name-td, tbody tr:hover .col-sum-td { background:#f5f3ef; }
+tbody tr:hover .col-name-td, tbody tr:hover .col-email-td, tbody tr:hover .col-sum-td { background:#f5f3ef; }
 .col-name-td { padding:0 16px; }
-.name-inner { display:flex; align-items:center; gap:8px; height:46px; color:var(--text); }
+.name-inner { display:flex; align-items:center; gap:8px; height:46px; color:var(--text); overflow:hidden; }
 .row-num { font-family:var(--mono); font-size:10px; color:var(--border2); min-width:18px; }
-.name-text { display:flex; flex-direction:column; line-height:1.25; }
+.name-text { display:flex; flex-direction:column; line-height:1.25; min-width:0; }
+.name-main { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .row-sid { font-family:var(--mono); font-size:10px; color:var(--text3); }
 .col-sum-td { padding:0 4px; text-align:center; }
 .sum-badge { font-family:var(--mono); font-size:11px; font-weight:500; color:var(--text2); }

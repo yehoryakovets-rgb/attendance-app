@@ -109,6 +109,14 @@ app.on('open-file', (event, filePath) => {
   pushAmToWindow();                                // window already open → push now
 });
 
+// Windows/Linux pass the double-clicked file as a command-line argument.
+function amPathFromArgv(argv) {
+  try {
+    const a = (argv || []).find(x => typeof x === 'string' && x.toLowerCase().endsWith('.am') && fs.existsSync(x));
+    return a || null;
+  } catch (e) { return null; }
+}
+
 // The renderer calls this once it's fully ready, to pick up a file that was
 // queued during launch (cold start or window-less Dock app).
 ipcMain.handle('get-pending-am', () => {
@@ -123,12 +131,30 @@ ipcMain.handle('get-pending-am', () => {
 
 ipcMain.handle('get-version', () => app.getVersion());
 
-app.whenReady().then(() => {
-  createWindow();
-  app.on('activate', () => {
-    if (!mainWindow) createWindow();
+// Single-instance: on Windows, double-clicking a .am while the app runs launches
+// a second process — route its file to the existing window instead.
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, argv) => {
+    const fp = amPathFromArgv(argv);
+    if (fp) pendingOpenFile = fp;
+    if (!mainWindow) { createWindow(); return; }
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+    if (fp) pushAmToWindow();
   });
-});
+
+  app.whenReady().then(() => {
+    const fp = amPathFromArgv(process.argv);   // cold launch via double-click (Win/Linux)
+    if (fp) pendingOpenFile = fp;
+    createWindow();
+    app.on('activate', () => {
+      if (!mainWindow) createWindow();
+    });
+  });
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

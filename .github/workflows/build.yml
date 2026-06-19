@@ -1,4 +1,4 @@
-name: Build Mac App
+name: Build Apps
 
 on:
   push:
@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   build:
+    name: Build Mac app
     runs-on: macos-latest
 
     steps:
@@ -39,25 +40,55 @@ jobs:
           path: dist/*.zip
           retention-days: 30
 
-      # Only runs when a version tag (v*) is pushed: publishes a public
-      # Release with the Mac .zip files attached so anyone can download them.
+      # Only runs when a version tag (v*) is pushed: publishes a public Release
+      # with the Mac .zip attached (the Windows job appends its .exe afterward).
       - name: Publish Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*.zip
           body: |
-            ## Attendance Manager — download for Mac
+            ## Attendance Manager
 
-            **Apple Silicon Macs (M1/M2/M3/M4 — most recent MacBooks):**
-            download the file ending in **`-arm64-mac.zip`**.
+            ### Mac
+            **Apple Silicon Macs (M1/M2/M3/M4):** download **`-arm64-mac.zip`**.
+            *(Older Intel Macs: download `-mac.zip`.)*
+            1. Double-click the `.zip` → **Attendance Manager.app** → drag into **Applications**.
+            2. First open: if blocked,  → **System Settings → Privacy & Security** → **Open Anyway**.
 
-            *(Older Intel Macs: download the one ending in `-mac.zip`.)*
+            ### Windows
+            Download the **`.exe`** installer and run it.
+            *(If Windows shows a blue "protected your PC" box: **More info → Run anyway**.)*
 
-            ### How to install
-            1. Double-click the downloaded `.zip` — it unpacks to **Attendance Manager.app**.
-            2. Drag **Attendance Manager.app** into your **Applications** folder.
-            3. The first time you open it, macOS may say it can't verify the developer.
-               To allow it: open  → **System Settings → Privacy & Security**,
-               scroll to the bottom, and click **Open Anyway**, then confirm.
-            4. After that first time, just double-click the app whenever you need it.
+  build-win:
+    name: Build Windows app
+    needs: build          # run after the Mac job so the Release already exists
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Windows app
+        run: npm run build:win
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Attendance-Manager-Windows
+          path: dist/*.exe
+          retention-days: 30
+
+      - name: Attach Windows installer to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.exe

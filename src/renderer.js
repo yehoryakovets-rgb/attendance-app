@@ -342,6 +342,8 @@ function renderRoster(cls) {
       <span class="s-num">${String(i+1).padStart(2,'0')}</span>
       <input class="s-edit s-edit-name" value="${h(s.name)}" title="Edit name"
              onchange="editStu('${s.id}','name',this.value)">
+      <input class="s-edit s-edit-email" value="${h(s.email || '')}" placeholder="Email (optional)" title="Edit email"
+             onchange="editStu('${s.id}','email',this.value)">
       <input class="s-edit s-edit-id" value="${h(s.studentId || '')}" placeholder="Student ID" title="Edit student ID"
              onchange="editStu('${s.id}','studentId',this.value)">
       <button class="s-del" onclick="delStu('${s.id}')" title="Remove">×</button>
@@ -350,7 +352,8 @@ function renderRoster(cls) {
   return `
   <div class="roster-wrap">
     <div class="add-row">
-      <input class="field-input" id="ni" placeholder="Student full name" onkeydown="if(event.key==='Enter') document.getElementById('si').focus()">
+      <input class="field-input" id="ni" placeholder="Student full name" onkeydown="if(event.key==='Enter') document.getElementById('em').focus()">
+      <input class="field-input s-email-input" id="em" placeholder="Email (optional)" onkeydown="if(event.key==='Enter') document.getElementById('si').focus()">
       <input class="field-input s-id-input" id="si" placeholder="Student ID" onkeydown="if(event.key==='Enter') addStu()">
       <button class="btn btn-green" onclick="addStu()">Add</button>
       <button class="btn btn-outline" onclick="pasteRosterModal()" title="Paste a class list copied from Brightspace">Paste class list</button>
@@ -365,9 +368,10 @@ function renderRoster(cls) {
 
 function addStu() {
   const name = document.getElementById('ni')?.value.trim();
+  const email = document.getElementById('em')?.value.trim() || '';
   const studentId = document.getElementById('si')?.value.trim() || '';
   if (!name) return;
-  ac().students.push({ id: uid(), name, studentId });
+  ac().students.push({ id: uid(), name, studentId, email });
   save(); render();
   setTimeout(() => document.getElementById('ni')?.focus(), 50);
 }
@@ -430,7 +434,8 @@ function parseRoster(text) {
     if (!isBrightspace && hasIds && !studentId) continue; // drop non-student junk when IDs are present
     if (studentId && seen.has(studentId)) continue;       // de-duplicate by ID
     if (studentId) seen.add(studentId);
-    out.push({ name, studentId });
+    const email = (raw.match(/[^\s,;@]+@[^\s,;@]+\.[^\s,;@]+/) || [''])[0]; // capture an email if present
+    out.push({ name, studentId, email });
   }
   return out;
 }
@@ -457,7 +462,7 @@ function updatePastePreview() {
   if (!el) return;
   if (!pendingPaste.length) { el.innerHTML = 'No students detected yet.'; return; }
   const rows = pendingPaste.map((s, i) =>
-    `<tr><td style="padding:2px 8px;color:var(--text3)">${i+1}</td><td style="padding:2px 8px;color:var(--text)">${h(s.name)}</td><td style="padding:2px 8px;font-family:var(--mono);color:var(--text2)">${h(s.studentId)}</td></tr>`
+    `<tr><td style="padding:2px 8px;color:var(--text3)">${i+1}</td><td style="padding:2px 8px;color:var(--text)">${h(s.name)}</td><td style="padding:2px 8px;color:var(--text2)">${h(s.email || '')}</td><td style="padding:2px 8px;font-family:var(--mono);color:var(--text2)">${h(s.studentId)}</td></tr>`
   ).join('');
   el.innerHTML = `<div style="margin-bottom:6px;color:var(--accent);font-weight:600">Found ${pendingPaste.length} student${pendingPaste.length !== 1 ? 's' : ''}:</div>
     <div style="max-height:220px;overflow:auto;border:1px solid var(--border);border-radius:6px"><table style="border-collapse:collapse;width:100%">${rows}</table></div>`;
@@ -469,7 +474,7 @@ function importPasted() {
   let added = 0;
   for (const s of pendingPaste) {
     if (s.studentId && existing.has(s.studentId)) continue; // skip duplicates by ID
-    cls.students.push({ id: uid(), name: s.name, studentId: s.studentId });
+    cls.students.push({ id: uid(), name: s.name, studentId: s.studentId, email: s.email || '' });
     if (s.studentId) existing.add(s.studentId);
     added++;
   }
@@ -522,7 +527,8 @@ function renderSheet(cls) {
     }).join('');
     const pc = st.pct < 80 ? 'vpl' : st.pct < 90 ? 'vpm' : 'vpok';
     return `<tr>
-      <td class="col-name-td"><div class="name-inner"><span class="row-num">${String(si+1).padStart(2,'0')}</span><span class="name-text">${h(s.name)}${s.studentId ? `<span class="row-sid">${h(s.studentId)}</span>` : ''}</span></div></td>
+      <td class="col-name-td"><div class="name-inner"><span class="row-num">${String(si+1).padStart(2,'0')}</span><span class="name-text"><span class="name-main">${h(s.name)}</span>${s.studentId ? `<span class="row-sid">${h(s.studentId)}</span>` : ''}</span></div></td>
+      <td class="col-email-td"><span class="email-cell" title="${h(s.email || '')}">${h(s.email || '')}</span></td>
       <td class="col-sum-td"><span class="sum-badge${bad ? ' bad' : ''}" id="sum-${s.id}">${st.abs}/${st.tardy}</span></td>
       ${cells}
       <td class="col-stat-td"><span class="${st.abs > 0 ? 'va' : 'vok'}" id="sa-${s.id}">${st.abs}</span></td>
@@ -547,6 +553,7 @@ function renderSheet(cls) {
     <table>
       <thead><tr>
         <th class="col-name-h">Student</th>
+        <th class="col-email-h">Email</th>
         <th class="col-sum-h">Abs/T</th>
         ${dh}
         <th class="col-stat-h">Abs</th>

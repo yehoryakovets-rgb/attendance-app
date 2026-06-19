@@ -1,11 +1,12 @@
 {
   "name": "attendance-manager",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "Attendance Manager for classroom use",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --mac --publish never"
+    "build": "electron-builder --mac --publish never",
+    "build:win": "electron-builder --win --publish never"
   },
   "build": {
     "appId": "com.attendance.manager",
@@ -16,6 +17,18 @@
       "target": [
         { "target": "zip", "arch": ["x64", "arm64"] }
       ]
+    },
+    "win": {
+      "icon": "assets/icon.png",
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
     },
     "fileAssociations": [
       {
